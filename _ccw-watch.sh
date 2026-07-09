@@ -32,7 +32,11 @@ LOG="${CCW_LOG:-$HOME/.claude/ccw.log}"
 TAIL_N="${CCW_TAIL:-15}"
 
 # 撞牆偵測 pattern。錨定真實字串樣本（含 terryso/claude-auto-resume issues 蒐集的野生格式）：
-#   陽性："You've hit your session limit · resets 5pm (Asia/Taipei)"（2026-07-08 API 錯誤實錄）
+#   陽性："You've hit your session limit · resets 4:40pm (Asia/Taipei)"
+#         ★2026-07-09 真撞牆實戰確認：命中此行→解析 16:40→睡到 16:45→送繼續→session 恢復。
+#         撞牆時 Claude 另跳「What do you want to do? 1.Upgrade your plan / 2.Upgrade to Team / 3.Stop and wait」
+#         升級選單（預設反白 Upgrade）——送繼續前的 Escape 前置把它取消掉，未誤選付費。
+#         "You've hit your session limit · resets 5pm (Asia/Taipei)"（2026-07-08 API 錯誤實錄）
 #         "You've hit your session limit · resets 4:20am (Europe/Warsaw)"（terryso PR#26）
 #         "5-hour limit reached ∙ resets 12:30am"（terryso issue#14）
 #         "Claude AI usage limit reached|<epoch>"（headless 舊格式）

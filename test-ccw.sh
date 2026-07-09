@@ -28,6 +28,8 @@ parse() { # $1=text（應能解析出時間）
 }
 
 echo "== 偵測：應命中（真實陽性樣本）=="
+# ↓ 2026-07-09 真撞牆實戰確認：看門狗實際命中此行、解析 4:40pm→16:40、+5min 睡到 16:45 送繼續、session 恢復
+detect hit "You've hit your session limit · resets 4:40pm (Asia/Taipei)"
 detect hit "You've hit your session limit · resets 5pm (Asia/Taipei)"
 detect hit "You've hit your session limit · resets 4:20am (Europe/Warsaw)"
 detect hit "5-hour limit reached ∙ resets 12:30am"
