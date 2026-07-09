@@ -62,6 +62,15 @@ notify() {
 		osascript -e "display notification \"$1\" with title \"ccw\"" >/dev/null 2>&1 || true
 }
 
+# 撞牆升級選單偵測（Claude 撞牆時可能跳「What do you want to do? 1.Upgrade / 2.Upgrade Team / 3.Stop and wait」）。
+# 用於送 Enter 前的 fail-safe：選單還在就絕不按 Enter（避免落在預設反白的 Upgrade）。
+MENU_RE='What do you want to do|Upgrade your plan|Upgrade to Team'
+menu_present() {
+	tmux capture-pane -p -t "$SESSION" 2>/dev/null |
+		awk 'NF{l=NR}{a[NR]=$0}END{for(i=1;i<=l;i++)print a[i]}' | tail -n "$TAIL_N" |
+		grep -qiE "$MENU_RE"
+}
+
 log "看門狗啟動（每 ${POLL}s 拍一次；靜止 ${STILL_N} 次才動作；撞牆後送「${CONT_MSG}」）"
 
 last_sig=""
@@ -110,9 +119,18 @@ while tmux has-session -t "$SESSION" 2>/dev/null; do
 	sleep "$secs"
 
 	tmux has-session -t "$SESSION" 2>/dev/null || break
-	# 先送 Escape 清掉可能殘留的對話框/選單（避免 Enter 意外按到權限框的反白選項），再送續跑訊息
+
+	# 送 Enter 前的 fail-safe：一律先送 Escape 清可能殘留的對話框/選單，
+	# 再確認撞牆升級選單是否還在——還在就【絕不送 Enter】（避免落在預設反白的 Upgrade），改通知人工。
 	tmux send-keys -t "$SESSION" Escape
 	sleep 1
+	if menu_present; then
+		log "撞牆升級選單 Escape 後仍在，絕不送 Enter（避免誤選 Upgrade），改通知人工"
+		notify "撞牆選單需人工：請手動選「Stop and wait」，之後看門狗會接續（session ${SESSION}）"
+		last_sig=""; still=0
+		sleep 120
+		continue
+	fi
 	tmux send-keys -t "$SESSION" "$CONT_MSG" Enter
 	log "已送出「${CONT_MSG}」，等待對話接續"
 	notify "已自動送出「${CONT_MSG}」接續對話（session ${SESSION}）"
