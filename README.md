@@ -22,22 +22,29 @@
 | `_ccw-watch.sh` | 看門狗：定時偷看畫面，確認真凍住才等重置、送「繼續」 |
 | `_resume-lib.sh` | 共用：時間解析 + BSD/GNU date 相容層 |
 | `test-ccw.sh` | 向量測試：14 條真實陽性/陰性樣本 + 解析（改 `CCW_LIMIT_RE` 後跑一下防退化）|
+| `install.sh` | 一鍵安裝：symlink 進 `~/.local/bin` + PATH 處理 + 檢查 tmux（免 sudo）|
 
 支援 **macOS 與 Linux**（date 已做相容層；caffeinate / 桌面通知為 macOS 專屬、Linux 自動略過）。WSL 理論可用但未實測，歡迎回報。
 
-## 安裝（一次）
+## 安裝
+
+需要 **tmux** 與 **Claude Code CLI**。先裝 tmux：`brew install tmux`（macOS）/ `sudo apt install tmux`（Linux）。
+
+### 一鍵安裝（推薦）
 
 ```sh
-# 1) 需要 tmux 與 Claude Code CLI
-brew install tmux          # macOS
-# sudo apt install tmux    # Linux
+git clone https://github.com/YouCheng29/claude-code-watchdog.git
+cd claude-code-watchdog && ./install.sh
+```
 
-# 2) clone
+`install.sh` 會：把 `ccw` symlink 進 `~/.local/bin`、必要時把它加進 PATH、檢查 tmux。**不需 sudo、不裝進系統目錄**。開新終端後即可用 `ccw`。之後更新：在此資料夾 `git pull`（建議 pin 版本 `git checkout v0.1.1`）。
+
+### 手動安裝（不想跑腳本、想自己掌控）
+
+```sh
 git clone https://github.com/YouCheng29/claude-code-watchdog.git ~/.local/share/claude-code-watchdog
-
-# 3) 加 alias（zsh 用 ~/.zshrc、bash 用 ~/.bashrc）
-echo 'alias ccw="$HOME/.local/share/claude-code-watchdog/ccw.sh"' >> ~/.zshrc
-# 開新終端生效；之後更新只要在該資料夾 git pull
+echo 'alias ccw="$HOME/.local/share/claude-code-watchdog/ccw.sh"' >> ~/.zshrc   # bash 用 ~/.bashrc
+# 開新終端生效
 ```
 
 > ⚠️ 別把 alias 取名 `cc`——那是系統 C 編譯器，會撞名。
