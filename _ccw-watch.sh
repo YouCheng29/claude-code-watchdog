@@ -28,15 +28,18 @@ BUFFER_MIN="${BUFFER_MIN:-5}"
 CONT_MSG="${CCW_CONTINUE_MSG:-繼續}"
 LOG="${CCW_LOG:-$HOME/.claude/ccw.log}"
 
-# 撞牆偵測 pattern。錨定真實字串樣本：
+# 撞牆偵測 pattern。錨定真實字串樣本（含 terryso/claude-auto-resume issues 蒐集的野生格式）：
 #   陽性："You've hit your session limit · resets 5pm (Asia/Taipei)"（2026-07-08 API 錯誤實錄）
+#         "You've hit your session limit · resets 4:20am (Europe/Warsaw)"（terryso PR#26）
+#         "5-hour limit reached ∙ resets 12:30am"（terryso issue#14）
+#         "Claude AI usage limit reached|<epoch>"（headless 舊格式）
 #   陰性："...50% of your weekly usage limit on Fable 5. If you hit your limit, you can continue..."
 #         （2026-07-09 TUI 促銷通知實錄——含 "usage limit"/"hit your limit" 但不是撞牆！）
-# 故要求「hit your...limit 同行有 resets」或「limit reached」或「resets + 時刻」的形狀，
-# 光有 "usage limit" / "hit your limit" 字樣不算。
+# 形狀要求：「hit your…limit＋resets 同行」或「limit reached＋resets 同行」或「limit reached|epoch」
+# 或「resets + am/pm 時刻」；光有 "usage limit" / "hit your limit" 字樣不算。
 # （不能寫在 ${VAR:-...} 預設值裡：RE 含 {1,2}，shell 會在第一個 } 截斷）
 LIMIT_RE="${CCW_LIMIT_RE:-}"
-[ -n "$LIMIT_RE" ] || LIMIT_RE='hit your .*limit.*resets|(usage|session) limit reached|resets [0-9]{1,2}(:[0-9]{2})?[[:space:]]*(am|pm)'
+[ -n "$LIMIT_RE" ] || LIMIT_RE='hit your .*limit.*resets|limit reached.*resets|limit reached[|][0-9]{10}|resets [0-9]{1,2}(:[0-9]{2})?[[:space:]]*(am|pm)'
 
 log() { printf '%s [ccw:%s] %s\n' "$(date '+%m-%d %H:%M:%S')" "$SESSION" "$1" >>"$LOG"; }
 
