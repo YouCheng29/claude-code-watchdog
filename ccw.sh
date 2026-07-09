@@ -55,11 +55,23 @@ command -v tmux >/dev/null 2>&1 || { echo "✗ 需要 tmux：brew install tmux" 
 CLAUDE_BIN=$(command -v claude || echo claude)
 SESSION="ccw-$$"
 
+# shell-quote：把每個參數安全逸出（tmux new-session 的 command 是交給 /bin/sh -c 跑的字串，
+# 不逸出的話 `ccw '; rm -rf ~'` 之類的參數會被求值——正常自己打沒事，但被別的腳本包起來、
+# 參數來自外部時就是命令注入）。逐一單引號包裹、內部單引號轉義。
+shq() {
+	_out=""
+	for _a in "$@"; do
+		_esc=$(printf '%s' "$_a" | sed "s/'/'\\\\''/g")
+		_out="$_out '$_esc'"
+	done
+	printf '%s' "$_out"
+}
+
 # macOS：caffeinate -i 防 idle 睡眠（claude 活著期間有效；蓋螢幕的 clamshell 睡眠擋不了）
 if command -v caffeinate >/dev/null 2>&1; then
-	LAUNCH="caffeinate -i $CLAUDE_BIN $*"
+	LAUNCH="caffeinate -i $(shq "$CLAUDE_BIN")$(shq "$@")"
 else
-	LAUNCH="$CLAUDE_BIN $*"
+	LAUNCH="$(shq "$CLAUDE_BIN")$(shq "$@")"
 fi
 
 # 1) 在 tmux 裡啟動 claude

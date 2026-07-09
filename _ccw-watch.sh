@@ -27,6 +27,9 @@ STILL_N="${CCW_STILL:-3}"
 BUFFER_MIN="${BUFFER_MIN:-5}"
 CONT_MSG="${CCW_CONTINUE_MSG:-繼續}"
 LOG="${CCW_LOG:-$HOME/.claude/ccw.log}"
+# 只掃畫面「最底部」幾行：真撞牆 banner 一定在最下方的 active 狀態，
+# 藉此把「Claude 讀到檔案/網頁裡的假 banner」（螢幕內容注入）擋在捲動區之外。
+TAIL_N="${CCW_TAIL:-15}"
 
 # 撞牆偵測 pattern。錨定真實字串樣本（含 terryso/claude-auto-resume issues 蒐集的野生格式）：
 #   陽性："You've hit your session limit · resets 5pm (Asia/Taipei)"（2026-07-08 API 錯誤實錄）
@@ -43,6 +46,11 @@ LIMIT_RE="${CCW_LIMIT_RE:-}"
 
 log() { printf '%s [ccw:%s] %s\n' "$(date '+%m-%d %H:%M:%S')" "$SESSION" "$1" >>"$LOG"; }
 
+# log 輪替：啟動時若超過 2000 行，只留最後 1000 行（避免無限長大）
+if [ -f "$LOG" ] && [ "$(wc -l <"$LOG" 2>/dev/null || echo 0)" -gt 2000 ]; then
+	tail -n 1000 "$LOG" >"$LOG.tmp" 2>/dev/null && mv "$LOG.tmp" "$LOG"
+fi
+
 notify() {
 	command -v osascript >/dev/null 2>&1 &&
 		osascript -e "display notification \"$1\" with title \"ccw\"" >/dev/null 2>&1 || true
@@ -57,7 +65,10 @@ while tmux has-session -t "$SESSION" 2>/dev/null; do
 	sleep "$POLL"
 	tmux has-session -t "$SESSION" 2>/dev/null || break
 
-	pane=$(tmux capture-pane -p -t "$SESSION" 2>/dev/null || true)
+	# 去掉尾端空行（capture-pane 會用空白補滿 pane 高度）後，只取最後 TAIL_N 行。
+	pane=$(tmux capture-pane -p -t "$SESSION" 2>/dev/null |
+		awk 'NF{last=NR} {a[NR]=$0} END{for(i=1;i<=last;i++)print a[i]}' |
+		tail -n "$TAIL_N" || true)
 	hits=$(printf '%s\n' "$pane" | grep -iE "$LIMIT_RE" || true)
 	if [ -z "$hits" ]; then
 		last_sig=""; still=0
