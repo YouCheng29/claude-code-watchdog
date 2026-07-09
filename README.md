@@ -14,6 +14,10 @@
 
 看門狗只做「讀畫面」和「打字」兩件事，**完全不呼叫 claude、不燒任何額度**。
 
+> ⚠️ **僅適用於終端機的 Claude Code CLI**（`claude` 指令）。桌面 app 與網頁版（claude.ai/code）是 GUI，
+> 無法用 tmux 包起來、也無法 `capture-pane`/`send-keys`，**故不支援**。長時間 / 會離開的任務請改用終端機 + ccw。
+> Terminal CLI only — the desktop/web GUI apps are not supported.
+
 ## 內含
 
 | 檔案 | 角色 |
