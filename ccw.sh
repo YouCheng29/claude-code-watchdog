@@ -19,7 +19,17 @@
 # 需求：tmux。注意：對話接的是「當前目錄」最近的對話 → 在原專案目錄執行 ccw。
 set -eu
 
-DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# 解析真實腳本位置（跟隨 symlink），確保被 symlink 成 ~/.local/bin/ccw 時
+# 仍能找到同資料夾的 _ccw-watch.sh / _resume-lib.sh。
+SELF="$0"
+while [ -L "$SELF" ]; do
+	_link=$(readlink "$SELF")
+	case "$_link" in
+	/*) SELF="$_link" ;;
+	*) SELF="$(dirname -- "$SELF")/$_link" ;;
+	esac
+done
+DIR=$(CDPATH= cd -- "$(dirname -- "$SELF")" && pwd)
 LOG="${CCW_LOG:-$HOME/.claude/ccw.log}"
 
 case "${1:-}" in
