@@ -13,13 +13,16 @@
 #   CCW_POLL=60            每幾秒拍一次快照
 #   CCW_STILL=3            撞牆字樣須連續幾次快照不變才動作
 #   BUFFER_MIN=5           重置後多睡幾分（避限流尾巴）
-#   CCW_CONTINUE_MSG=繼續   撞牆重置後要打進去的字
+#   CCW_CONTINUE_MSG=繼續   撞牆重置後要打進去的字（無待辦時使用）
+#   CCW_TODO_FILE          指定待辦檔（預設自動找 TODO.md 等）
+#   CCW_TODO_RESUME_MSG    有待辦時的續跑訊息（{todo} = 檔名或路徑）
 #   CCW_LIMIT_RE           覆寫撞牆偵測 pattern
 #   CCW_LOG                log 檔路徑（預設 ~/.claude/ccw.log）
 set -u
 
 DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$DIR/_resume-lib.sh"
+. "$DIR/_ccw-todo.sh"
 
 SESSION="${1:?usage: _ccw-watch.sh <tmux-session>}"
 POLL="${CCW_POLL:-60}"
@@ -131,9 +134,20 @@ while tmux has-session -t "$SESSION" 2>/dev/null; do
 		sleep 120
 		continue
 	fi
-	tmux send-keys -t "$SESSION" "$CONT_MSG" Enter
-	log "已送出「${CONT_MSG}」，等待對話接續"
-	notify "已自動送出「${CONT_MSG}」接續對話（session ${SESSION}）"
+
+	# 有待辦清單時：送「先讀 todo + 對照 session 再接續」；否則維持原本的「繼續」。
+	send_msg="$CONT_MSG"
+	proj=$(ccw_pane_cwd "$SESSION" || true)
+	if [ -n "$proj" ] && todo=$(ccw_find_todo "$proj"); then
+		send_msg=$(ccw_compose_resume_msg "$CONT_MSG" "$todo" "$proj")
+		log "專案有待辦（${todo}），改送 todo-aware 續跑訊息"
+	else
+		[ -n "$proj" ] && log "專案 ${proj} 無未完成待辦，送「${CONT_MSG}」"
+	fi
+
+	tmux send-keys -t "$SESSION" "$send_msg" Enter
+	log "已送出續跑訊息，等待對話接續"
+	notify "已自動續跑對話（session ${SESSION}）"
 
 	# 冷卻 + 重置靜止狀態：避免殘影在對話真正接上前被重複觸發
 	last_sig=""; still=0
