@@ -6,6 +6,7 @@ set -u
 
 DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 . "$DIR/_resume-lib.sh"
+. "$DIR/_ccw-todo.sh"
 
 # 與 _ccw-watch.sh 預設一致（改那邊記得同步這裡）
 LIMIT_RE='hit your .*limit.*resets|limit reached.*resets|limit reached[|][0-9]{10}|resets [0-9]{1,2}(:[0-9]{2})?[[:space:]]*(am|pm)'
@@ -48,6 +49,34 @@ parse "You've hit your session limit · resets 4:20am (Europe/Warsaw)"
 parse "5-hour limit reached ∙ resets 12:30am"
 parse "5-hour limit reached ∙ resets 17:00"
 parse "Claude AI usage limit reached|1751972400"
+
+echo "== 待辦偵測 =="
+_todo_tmp=$(mktemp -d)
+_todo_proj="$_todo_tmp/proj"
+mkdir -p "$_todo_proj"
+printf '%s\n' '- [x] done' '- [ ] pending' >"$_todo_proj/TODO.md"
+if todo=$(ccw_find_todo "$_todo_proj"); then
+	echo "  ✓ [todo] 找到 TODO.md 含未完成項 → ${todo}"
+else
+	echo "  ✗ [todo] 應找到 TODO.md"; fails=$((fails + 1))
+fi
+printf '%s\n' '- [x] all done' >"$_todo_proj/TODO.md"
+if ccw_find_todo "$_todo_proj" >/dev/null 2>&1; then
+	echo "  ✗ [todo] 全完成不應觸發"; fails=$((fails + 1))
+else
+	echo "  ✓ [todo] 全完成 → 不觸發"
+fi
+_msg=$(ccw_compose_resume_msg '繼續' "$_todo_proj/TODO.md" "$_todo_proj")
+case "$_msg" in
+*TODO.md*) echo "  ✓ [todo-msg] 中文訊息含 TODO.md" ;;
+*) echo "  ✗ [todo-msg] 中文訊息應含 TODO.md: $_msg"; fails=$((fails + 1)) ;;
+esac
+_msg_en=$(ccw_compose_resume_msg 'continue' "$_todo_proj/TODO.md" "$_todo_proj")
+case "$_msg_en" in
+*TODO.md*) echo "  ✓ [todo-msg] 英文訊息含 TODO.md" ;;
+*) echo "  ✗ [todo-msg] 英文訊息應含 TODO.md: $_msg_en"; fails=$((fails + 1)) ;;
+esac
+rm -rf "$_todo_tmp"
 
 echo
 if [ "$fails" -eq 0 ]; then echo "ALL PASS"; exit 0; else echo "$fails FAILED"; exit 1; fi

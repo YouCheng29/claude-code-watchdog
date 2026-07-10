@@ -15,7 +15,7 @@
 # detach（Ctrl-B D）＝合法用法：claude 與看門狗留在背景繼續跑，
 #   回來用 tmux attach -t <session>（或 ccw status 查名字）。
 #
-# 環境變數（轉給看門狗）：CCW_POLL、CCW_STILL、BUFFER_MIN、CCW_CONTINUE_MSG、CCW_LIMIT_RE、CCW_LOG
+# 環境變數（轉給看門狗）：CCW_POLL、CCW_STILL、BUFFER_MIN、CCW_CONTINUE_MSG、CCW_TODO_FILE、CCW_TODO_RESUME_MSG、CCW_LIMIT_RE、CCW_LOG
 # 需求：tmux。注意：對話接的是「當前目錄」最近的對話 → 在原專案目錄執行 ccw。
 set -eu
 
@@ -34,8 +34,17 @@ LOG="${CCW_LOG:-$HOME/.claude/ccw.log}"
 
 case "${1:-}" in
 status)
+	. "$DIR/_ccw-todo.sh"
 	echo "== ccw sessions =="
-	tmux ls 2>/dev/null | grep '^ccw-' || echo "（無）"
+	_any=
+	for _sess in $(tmux ls 2>/dev/null | grep -oE '^ccw-[0-9]+' || true); do
+		_any=1
+		_cwd=$(ccw_pane_cwd "$_sess" 2>/dev/null || echo "?")
+		_meta=$(tmux ls 2>/dev/null | grep "^${_sess}:" | sed 's/^[^:]*:[[:space:]]*//')
+		printf '%s  →  %s\n' "$_sess" "$_cwd"
+		printf '    %s\n' "$_meta"
+	done
+	[ -n "$_any" ] || echo "（無）"
 	echo "== 看門狗程序 =="
 	ps ax -o pid=,command= | grep -E '/_ccw-watch\.sh ccw-[0-9]+ *$' || echo "（無）"
 	echo "== log 尾巴（${LOG}）=="
@@ -93,7 +102,7 @@ WATCH=$!
 
 # 3) 把你接進 tmux 正常工作
 echo "→ ccw：claude 已在 tmux「${SESSION}」啟動，看門狗看守中（log: ${LOG}）"
-echo "  離開時撞牆會自動等重置後送「${CCW_CONTINUE_MSG:-繼續}」接續；detach（Ctrl-B D）可留它背景跑。"
+echo "  離開時撞牆會自動等重置後續跑；有待辦（TODO.md 等）會先指示讀 todo 再接續。detach（Ctrl-B D）可留它背景跑。"
 tmux attach -t "$SESSION" || true
 
 # 4) attach 返回的兩種情況：
